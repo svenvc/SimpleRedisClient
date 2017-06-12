@@ -1,0 +1,1 @@
+I am SimpleRedisClientTests, holding unit tests as well as executeable examples and documentation for SimpleRedisClient.

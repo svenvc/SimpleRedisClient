@@ -1,0 +1,13 @@
+{
+	"commentStamp" : "SvenVanCaekenberghe 6/10/2017 09:35",
+	"super" : "TestCase",
+	"category" : "SimpleRedisClient",
+	"classinstvars" : [ ],
+	"pools" : [ ],
+	"classvars" : [ ],
+	"instvars" : [
+		"client"
+	],
+	"name" : "SimpleRedisClientTests",
+	"type" : "normal"
+}

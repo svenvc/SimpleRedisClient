@@ -1,0 +1,17 @@
+{
+	"commentStamp" : "SvenVanCaekenberghe 6/10/2017 09:32",
+	"super" : "Object",
+	"category" : "SimpleRedisClient",
+	"classinstvars" : [ ],
+	"pools" : [ ],
+	"classvars" : [ ],
+	"instvars" : [
+		"host",
+		"port",
+		"connection",
+		"in",
+		"out"
+	],
+	"name" : "SimpleRedisClient",
+	"type" : "normal"
+}
