@@ -12,13 +12,15 @@ Class {
 
 { #category : #running }
 SimpleRedisClientTests >> setUp [
+	super setUp.
 	client := SimpleRedisClient new.
 	client open
 ]
 
 { #category : #running }
 SimpleRedisClientTests >> tearDown [
-	client close
+	client close.
+	super tearDown
 ]
 
 { #category : #testing }

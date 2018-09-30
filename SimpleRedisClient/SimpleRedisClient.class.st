@@ -1,9 +1,25 @@
 "
 I am SimpleRedisClient, a minimal client to Redis, a networked, in-memory key-value store with optional durability supporting different kinds of abstract data structures.
 
-https://redis.io
-https://en.wikipedia.org/wiki/Redis
-https://redis.io/topics/protocol
+Example
+
+  SimpleRedisClient new in: [ :client |
+    [ client open; execute: { #ECHO. 'This is Pharo' } ] ensure: [ client close ] ].
+
+About Redis
+
+ https://redis.io
+ https://en.wikipedia.org/wiki/Redis
+ https://redis.io/topics/protocol
+
+Source code repository
+
+ https://github.com/svenvc/SimpleRedisClient
+
+Article
+
+ https://medium.com/concerning-pharo/quick-write-me-a-redis-client-5fbe4ddfb13d
+
 "
 Class {
 	#name : #SimpleRedisClient,
@@ -15,14 +31,14 @@ Class {
 		'in',
 		'out'
 	],
-	#category : 'SimpleRedisClient'
+	#category : #SimpleRedisClient
 }
 
 { #category : #'initialize-release' }
 SimpleRedisClient >> close [
 	connection
 		ifNotNil: [ 
-			[ connection close ] on: Error do: [  ].
+			[ connection close ] on: Error do: [ #ignore ].
 			in := out := connection := nil ]
 ]
 
