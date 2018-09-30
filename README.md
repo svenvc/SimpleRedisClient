@@ -1,6 +1,8 @@
 # SimpleRedisClient
 A minimal Redis client for Pharo
 
+[![Build Status](https://travis-ci.org/svenvc/SimpleRedisClient.svg?branch=master)](https://travis-ci.org/svenvc/SimpleRedisClient)
+
 Redis is a networked, in-memory key-value store with optional durability, supporting different kinds of abstract data structures. Redis can be used to implement various server side architectural patterns.
 
 - https://redis.io
