@@ -15,4 +15,4 @@ The following Medium article in the Concerning Pharo publication explains Simple
 - SUBTITLE A beautiful protocol makes implementation easy
 - URL https://medium.com/concerning-pharo/quick-write-me-a-redis-client-5fbe4ddfb13d
 
-To load the code in Pharo 6, open World > Tools > Iceberg, click + Clone repository, enter Remote URL git@github.com:svenvc/SimpleRedisClient.git and click the Create repository button. With the new repository selected, go to the tab Packages and select Load package from the command menu.
+To load the code in Pharo 6.1 or later, open World > Tools > Iceberg, click + to add a repository, select the option Clone From github.com and enter svenvc as owner name and SimpleRedisClient as project name. With the new repository selected, select Metacello > Install baseline of SimpleRedisClient.
