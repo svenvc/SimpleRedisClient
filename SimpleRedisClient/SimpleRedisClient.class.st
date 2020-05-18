@@ -34,12 +34,82 @@ Class {
 	#category : #SimpleRedisClient
 }
 
+{ #category : #redis }
+SimpleRedisClient >> at: key [ 
+	^self execute: { #GET. key }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key append: aValue [
+	^self execute: { #APPEND. key. aValue }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key bit: pos [ 
+	^self execute: { #GETBIT. key. pos }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key bit: pos put: bit [
+	^self execute: { #SETBIT. key. pos. bit }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key from: start put: value [
+	^self execute: { #SETRANGE. key. (start > -1 ifTrue: [start-1] ifFalse: [start]). value }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key from: start to: end [
+	^self execute: { #GETRANGE. key. (start > -1 ifTrue: [start-1] ifFalse: [start]). (end > -1 ifTrue: [end-1] ifFalse: [end]) }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key put: aValue [
+	^self execute: { #SET. key. aValue }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> at: key swap: aValue [
+	^self execute: { #GETSET. key. aValue }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> atAll: keys [ 
+	^self execute: { #MGET }, keys
+]
+
+{ #category : #redis }
+SimpleRedisClient >> atAll: keys putAll: values [
+	^self execute: { #MSET }, ((keys with: values collect: [:k :v | {k. v}]) flatCollect: [ :ea | ea ])
+]
+
+{ #category : #redis }
+SimpleRedisClient >> bitCountAt: key [ 
+	^self execute: { #BITCOUNT. key }
+]
+
 { #category : #'initialize-release' }
 SimpleRedisClient >> close [
 	connection
 		ifNotNil: [ 
 			[ connection close ] on: Error do: [ #ignore ].
 			in := out := connection := nil ]
+]
+
+{ #category : #redis }
+SimpleRedisClient >> decrementAt: key [ 
+	^self execute: { #DECR. key }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> decrementAt: key by: value [ 
+	^self execute: { #DECRBY. key. value }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> echo: aMessage [
+	^self execute: { #ECHO. aMessage }
 ]
 
 { #category : #convenience }
@@ -64,12 +134,34 @@ SimpleRedisClient >> host: string [
 	host := string
 ]
 
+{ #category : #redis }
+SimpleRedisClient >> incrementAt: key [ 
+	^self execute: { #INCR. key }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> incrementAt: key by: value [
+	^value isIntegerType 
+		ifTrue: [ self execute: { #INCRBY. key. value } ]
+		ifFalse: [ self execute: { #INCRBYFLOAT. key. value } ]
+]
+
 { #category : #'initialize-release' }
 SimpleRedisClient >> open [
 	self close.
 	connection := ZdcSocketStream openConnectionToHostNamed: self host port: self port.
 	in := ZnCharacterReadStream on: connection.
 	out := ZnCharacterWriteStream on: connection
+]
+
+{ #category : #redis }
+SimpleRedisClient >> ping [
+	^self execute: { #PING }
+]
+
+{ #category : #redis }
+SimpleRedisClient >> ping: aMessage [
+	^self execute: {#PING. aMessage}
 ]
 
 { #category : #accessing }
@@ -112,6 +204,11 @@ SimpleRedisClient >> readReply [
 	first = $* ifTrue: [ ^ self readArray ].
 	first = $$ ifTrue: [ ^ self readBulkString ].
 	self error: 'Unknown reply type'
+]
+
+{ #category : #redis }
+SimpleRedisClient >> select: aDatabaseIndex [
+	^self execute: { #SELECT. aDatabaseIndex }
 ]
 
 { #category : #writing }
