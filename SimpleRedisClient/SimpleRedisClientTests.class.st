@@ -7,7 +7,7 @@ Class {
 	#instVars : [
 		'client'
 	],
-	#category : 'SimpleRedisClient'
+	#category : #SimpleRedisClient
 }
 
 { #category : #running }
@@ -27,7 +27,7 @@ SimpleRedisClientTests >> tearDown [
 SimpleRedisClientTests >> testEcho [
 	| string |
 	string := 'STR-' , 99 atRandom asString.
-	self assert: (client execute: { #ECHO. string }) equals: string
+	self assert: (client echo: string) equals: string
 ]
 
 { #category : #testing }
@@ -72,7 +72,7 @@ SimpleRedisClientTests >> testListSimple [
 
 { #category : #testing }
 SimpleRedisClientTests >> testPing [
-	self assert: (client executeInline: #PING) equals: #PONG
+	self assert: client ping equals: #PONG
 ]
 
 { #category : #testing }

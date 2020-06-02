@@ -24,69 +24,22 @@ Article
 Class {
 	#name : #SimpleRedisClient,
 	#superclass : #Object,
+	#traits : 'TRedisClient + TRedisKeys',
+	#classTraits : 'TRedisClient classTrait + TRedisKeys classTrait',
 	#instVars : [
 		'host',
 		'port',
 		'connection',
 		'in',
-		'out'
+		'out',
+		'handlers',
+		'attributes'
 	],
 	#category : #SimpleRedisClient
 }
 
-{ #category : #redis }
-SimpleRedisClient >> at: key [ 
-	^self execute: { #GET. key }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key append: aValue [
-	^self execute: { #APPEND. key. aValue }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key bit: pos [ 
-	^self execute: { #GETBIT. key. pos }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key bit: pos put: bit [
-	^self execute: { #SETBIT. key. pos. bit }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key from: start put: value [
-	^self execute: { #SETRANGE. key. (start > -1 ifTrue: [start-1] ifFalse: [start]). value }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key from: start to: end [
-	^self execute: { #GETRANGE. key. (start > -1 ifTrue: [start-1] ifFalse: [start]). (end > -1 ifTrue: [end-1] ifFalse: [end]) }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key put: aValue [
-	^self execute: { #SET. key. aValue }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> at: key swap: aValue [
-	^self execute: { #GETSET. key. aValue }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> atAll: keys [ 
-	^self execute: { #MGET }, keys
-]
-
-{ #category : #redis }
-SimpleRedisClient >> atAll: keys putAll: values [
-	^self execute: { #MSET }, ((keys with: values collect: [:k :v | {k. v}]) flatCollect: [ :ea | ea ])
-]
-
-{ #category : #redis }
-SimpleRedisClient >> bitCountAt: key [ 
-	^self execute: { #BITCOUNT. key }
+{ #category : #accessing }
+SimpleRedisClient >> attributes [
 ]
 
 { #category : #'initialize-release' }
@@ -97,23 +50,14 @@ SimpleRedisClient >> close [
 			in := out := connection := nil ]
 ]
 
-{ #category : #redis }
-SimpleRedisClient >> decrementAt: key [ 
-	^self execute: { #DECR. key }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> decrementAt: key by: value [ 
-	^self execute: { #DECRBY. key. value }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> echo: aMessage [
-	^self execute: { #ECHO. aMessage }
+{ #category : #keys }
+SimpleRedisClient >> dictionaryAt: aKey [ 
+	^RedisDictionary new client: self; name: aKey.
 ]
 
 { #category : #convenience }
 SimpleRedisClient >> execute: commandArgs [
+	attributes := nil.
 	self writeCommand: commandArgs.
 	^ self readReply 
 ]
@@ -134,16 +78,33 @@ SimpleRedisClient >> host: string [
 	host := string
 ]
 
-{ #category : #redis }
-SimpleRedisClient >> incrementAt: key [ 
-	^self execute: { #INCR. key }
+{ #category : #'initialize-release' }
+SimpleRedisClient >> initialize [ 
+	super initialize.
+	handlers := { 
+	"RESP2"
+		$+ -> [ in nextLine ].
+		$: -> [ in nextLine asInteger ].
+		$- -> [ self error: in nextLine ].
+		$* -> [ self readArray ].
+		$$ -> [ self readBulkString ].
+	"RESP3"
+		$_ -> [ in nextLine. nil ].
+		$, -> [ self readFloat ].
+		$# -> [ in nextLine = 't' ].
+		$! -> [ self error: self readBulkString ].
+		$= -> [ self readVerbatimString ].
+		$( -> [ in nextLine asNumber ].
+		$~ -> [ self readSet ].
+		$% -> [ self readDictionary ].
+		$| -> [ self readAttribute ].
+		$> -> [ self readPushNotification ].
+	 } asDictionary
 ]
 
-{ #category : #redis }
-SimpleRedisClient >> incrementAt: key by: value [
-	^value isIntegerType 
-		ifTrue: [ self execute: { #INCRBY. key. value } ]
-		ifFalse: [ self execute: { #INCRBYFLOAT. key. value } ]
+{ #category : #keys }
+SimpleRedisClient >> listAt: aKey [ 
+	^RedisList new client: self; name: aKey.
 ]
 
 { #category : #'initialize-release' }
@@ -152,16 +113,6 @@ SimpleRedisClient >> open [
 	connection := ZdcSocketStream openConnectionToHostNamed: self host port: self port.
 	in := ZnCharacterReadStream on: connection.
 	out := ZnCharacterWriteStream on: connection
-]
-
-{ #category : #redis }
-SimpleRedisClient >> ping [
-	^self execute: { #PING }
-]
-
-{ #category : #redis }
-SimpleRedisClient >> ping: aMessage [
-	^self execute: {#PING. aMessage}
 ]
 
 { #category : #accessing }
@@ -174,14 +125,28 @@ SimpleRedisClient >> port: integer [
 	port := integer
 ]
 
+{ #category : #accessing }
+SimpleRedisClient >> postPushNotification: notification [ 
+	Transcript show: notification printString; cr.
+]
+
 { #category : #reading }
 SimpleRedisClient >> readArray [
 	| length array |
-	length := in nextLine asInteger.
+	length := in nextLine.
+	length = '?' ifTrue: [ ^self readStreamedArray ] ifFalse: [ length := length asInteger ].
 	length = -1 ifTrue: [ ^ nil ].
 	array := Array new: length streamContents: [ :elements |
 		length timesRepeat: [ elements nextPut: self readReply ] ].
 	^ array
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readAttribute [
+	| attr |
+	attr := self readDictionary.
+	self reportAttribute: attr.
+	^self readReply
 ]
 
 { #category : #reading }
@@ -195,20 +160,97 @@ SimpleRedisClient >> readBulkString [
 ]
 
 { #category : #reading }
+SimpleRedisClient >> readDictionary [
+	| length array |
+	length := in nextLine.
+	length = '?' ifTrue: [ self readStreamedDictionary ] ifFalse: [ length := length asInteger ].
+	length = -1 ifTrue: [ ^ nil ].
+	array := Array streamContents: [ :elements |
+		length timesRepeat: [ | key value | 
+			key := self readReply.
+			value := self readReply.
+			elements nextPut: (key -> value) ] ].
+	^ array asDictionary
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readFloat [
+	| value |
+	value := in nextLine.
+	value = 'inf' ifTrue: [ ^Float infinity ].
+	value = '-inf' ifTrue: [ ^Float negativeInfinity ].
+	^value asNumber.
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readPushNotification [
+	| notification |
+	notification := self readArray.
+	self postPushNotification: notification.
+	^self readReply
+]
+
+{ #category : #reading }
 SimpleRedisClient >> readReply [
 	| first |
 	first := in next.
-	first = $+ ifTrue: [ ^ in nextLine ].
-	first = $: ifTrue: [ ^ in nextLine asInteger ].
-	first = $- ifTrue: [ ^ self error: in nextLine ].
-	first = $* ifTrue: [ ^ self readArray ].
-	first = $$ ifTrue: [ ^ self readBulkString ].
-	self error: 'Unknown reply type'
+	^(handlers at: first ifAbsent: [ self error: 'Unknown reply type' ]) value.
 ]
 
-{ #category : #redis }
-SimpleRedisClient >> select: aDatabaseIndex [
-	^self execute: { #SELECT. aDatabaseIndex }
+{ #category : #reading }
+SimpleRedisClient >> readSet [
+	^ self readArray asSet
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readStreamedArray [
+	^Array streamContents: [ :s |
+		[in peek = $.] whileFalse: [ s nextPut: self readReply ].
+		in nextLine ]
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readStreamedDictionary [
+	^Array streamContents: [ :s || key value |
+		[ in peek = $. ] whileFalse: [ 
+		key := self readReply.
+		value := self readReply.
+		s nextPut: (key -> value).
+		 ].
+		in nextLine.
+		 ] asDictionary
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readStreamedString [
+	
+	^String streamContents: [ :s || length |
+		in next = $; ifFalse: [ self error: 'Error reading streamed string.  Expected semicolon.' ].
+		[(length := in nextLine asInteger) > 0] whileTrue: [
+			(in next: length into: s).
+			in nextLine
+		]
+	]
+]
+
+{ #category : #reading }
+SimpleRedisClient >> readVerbatimString [
+	| byteCount prefix bytes |
+	byteCount := in nextLine asInteger.
+	prefix := in upTo: $:.
+	bytes := in wrappedStream next: byteCount.
+	in nextLine.
+	"Valid prefixes are txt and mkd - we will assume just text for now"
+	"but mkd should perhaps make use of Pillar"
+	^ in encoder decodeBytes: bytes
+]
+
+{ #category : #accessing }
+SimpleRedisClient >> reportAttribute: anObject [
+	attributes := Array streamContents: [ :s | 
+		attributes ifNotNil: [ s nextPutAll: attributes ]. 
+		s nextPut: anObject
+		]
 ]
 
 { #category : #writing }
